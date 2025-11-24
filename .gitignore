@@ -1,3 +1,28 @@
+ # --------------------------------------------------------
+# 1. DEPENDENCIES & BUILD OUTPUTS
+# --------------------------------------------------------
+# Node dependencies and IDE artifacts
 node_modules/
-dist/
-build/
+**/node_modules/
+*.log
+npm-debug.log*
+
+# Frontend build output
+/frontend/build
+
+# Backend file uploads
+/backend/uploads/
+
+# --------------------------------------------------------
+# 2. SENSITIVE & ENVIRONMENT FILES
+# --------------------------------------------------------
+# Critical: Do NOT commit secrets or local DB
+.env
+.env.*
+database.sqlite
+
+# --------------------------------------------------------
+# 3. OS & IDE Specific Files
+# --------------------------------------------------------
+.DS_Store
+.vscode/
