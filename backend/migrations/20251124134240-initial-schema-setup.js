@@ -1,3 +1,4 @@
+// backend/migrations/20251124134240-initial-schema-setup.js
 'use strict';
 
 /** @type {import('sequelize-cli').Migration} */

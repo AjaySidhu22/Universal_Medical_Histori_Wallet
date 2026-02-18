@@ -1,76 +1,87 @@
-// const { Sequelize } = require('sequelize');
-// const path = require('path');
-
-// // Using SQLite for local development (file-based DB)
-// const sequelize = new Sequelize({
-//   dialect: 'sqlite',
-//   storage: path.resolve(__dirname, '../../database.sqlite'),
-//   logging: false
-// });
-
-// const connectDB = async () => {
-//   try {
-//     await sequelize.authenticate();
-//     console.log('Database connected successfully (SQLite).');
-//   } catch (err) {
-//     console.error('Unable to connect to DB:', err);
-//     throw err;
-//   }
-// };
-
-// module.exports = { sequelize, connectDB };
+// backend/src/config/database.js
+ 
 const { Sequelize } = require('sequelize');
+const dotenv = require('dotenv');
 const path = require('path');
-// Import dotenv config to ensure process.env variables are loaded
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') }); 
 
-// Determine which database config to use based on environment variables
+// Load environment variables
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
 let sequelize;
-let connectionMessage;
+let connectionType;
 
-if (process.env.DATABASE_URL) {
-    // 1. Production/Staging: Use PostgreSQL via DATABASE_URL
-    // The DATABASE_URL format is typically: postgres://user:pass@host:port/dbname
-    sequelize = new Sequelize(process.env.DATABASE_URL, {
-        dialect: 'postgres',
-        protocol: 'postgres',
-        logging: false,
-        // Recommended for production deployment where SSL is often required
-        dialectOptions: {
-            ssl: {
-                require: true,
-                rejectUnauthorized: false // Use with caution, but necessary for some hosted services
-            }
-        }
-    });
-    connectionMessage = 'Database connected successfully (PostgreSQL via URL).';
+// Determine environment
+const isProduction = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
+
+if (isTest) {
+  // TEST: Use SQLite in memory
+  sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: ':memory:',
+    logging: false
+  });
+  connectionType = 'Test (SQLite in-memory)';
+  
+} else if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== '') {
+  // PRODUCTION/STAGING: Use PostgreSQL
+  const isLocal = process.env.DATABASE_URL.includes('localhost') ||
+                  process.env.DATABASE_URL.includes('127.0.0.1');
+
+  sequelize = new Sequelize(process.env.DATABASE_URL, {
+    dialect: 'postgres',
+    logging: isProduction ? false : false,
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false  // ✅ Accept self-signed certificates
+      }
+    },
+    pool: {
+      max: 10,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }
+  });
+  
+  connectionType = isLocal ? 'Local PostgreSQL (SSL)' : 'Remote PostgreSQL (SSL)';
+  
 } else {
-    // 2. Local Development: Use SQLite (File-based)
-    sequelize =  new Sequelize({
-        dialect: 'sqlite',
-        // Note: Using __dirname for robust path resolution.
-        storage: path.resolve(__dirname, '../../database.sqlite'),
-        logging: process.env.NODE_ENV === 'development' // Only log SQL in dev if needed
-    });
-    connectionMessage = 'Database connected successfully (SQLite for local dev).';
+  // DEVELOPMENT FALLBACK: Use SQLite
+  sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: path.resolve(__dirname, '../../database.sqlite'),
+    logging: false
+  });
+  connectionType = 'Development (SQLite)';
 }
 
-/**
- * Attempts to authenticate the connection with the configured database.
- * @async
- */
 const connectDB = async () => {
-    try {
-        await sequelize.authenticate();
-        console.log(connectionMessage);
-    } catch (err) {
-        // Log the full error and terminate the process if DB connection is vital
-        console.error('CRITICAL: Unable to connect to database:', err);
-        throw new Error('Database connection failed.');
+  try {
+    await sequelize.authenticate();
+    
+    // Import logger only after it's initialized
+    const logger = require('../utils/logger');
+    logger.info(`Database connected: ${connectionType}`);
+    
+    // Sync models in development only (never in production)
+    if (!isProduction) {
+      await sequelize.sync({ alter: false });
+      logger.info('Database models synchronized');
     }
+    
+    return true;
+  } catch (error) {
+    // Try to use logger, fallback to console if not available
+    try {
+      const logger = require('../utils/logger');
+      logger.error('Database connection failed:', error.message);
+    } catch {
+      console.error('Database connection failed:', error.message);
+    }
+    throw error;
+  }
 };
 
-module.exports = { 
-    sequelize, 
-    connectDB 
-};
+module.exports = { sequelize, connectDB };

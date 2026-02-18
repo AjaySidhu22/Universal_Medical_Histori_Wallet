@@ -1,13 +1,4 @@
-// // backend/src/middlewares/requireAdmin.js
-
-// module.exports = (req, res, next) => {
-//   if (!req.user || req.user.role !== 'admin') {
-//     return res.status(403).json({ message: 'Access denied. Admins only.' });
-//   }
-//   next();
-// };
-
-
+ // backend/src/middlewares/requireAdmin.js
 
 /**
  * Authorization Middleware: Ensures the authenticated user has the 'admin' role.

@@ -1,81 +1,38 @@
-// // Import all model definitions
-// const User = require('./User');
-// const PatientProfile = require('./PatientProfile');
-// const DoctorProfile = require('./DoctorProfile');
-// const MedicalRecord = require('./MedicalRecord');
-// // **NEW IMPORT**
-// const ShareToken = require('./ShareToken'); 
-// // User-Profile Associations
-// User.hasOne(PatientProfile, { foreignKey: 'userId', onDelete: 'CASCADE' });
-// PatientProfile.belongsTo(User, { foreignKey: 'userId' });
+// backend/src/models/index.js
 
-// User.hasOne(DoctorProfile, { foreignKey: 'userId', onDelete: 'CASCADE' });
-// DoctorProfile.belongsTo(User, { foreignKey: 'userId' });
+'use strict';
 
-// // Medical Record Associations
-// PatientProfile.hasMany(MedicalRecord, { foreignKey: 'patientId', onDelete: 'CASCADE' });
-// MedicalRecord.belongsTo(PatientProfile, { foreignKey: 'patientId' });
+const fs = require('fs');
+const path = require('path');
+const Sequelize = require('sequelize');
+const basename = path.basename(__filename);
+const { sequelize } = require('../config/database'); // ✅ FIXED: Use the new database.js config
+const db = {};
 
-// DoctorProfile.hasMany(MedicalRecord, { foreignKey: 'doctorId', onDelete: 'SET NULL' });
-// MedicalRecord.belongsTo(DoctorProfile, { foreignKey: 'doctorId' });
-// // **START: Share Token Associations (MISSING LINES)**
-// PatientProfile.hasMany(ShareToken, { foreignKey: 'patientId', onDelete: 'CASCADE' });
-// ShareToken.belongsTo(PatientProfile, { foreignKey: 'patientId' });
-// // **END: Share Token Associations**
-// // We export the sequelize instance and all models for use throughout the application
-// module.exports = {
-//   sequelize: require('../config/database').sequelize,
-//   User,
-//   PatientProfile,
-//   DoctorProfile,
-//   MedicalRecord,
-//     // **NEW EXPORT**
-//   ShareToken, 
-// };
+// Load all model files
+fs
+  .readdirSync(__dirname)
+  .filter(file => {
+    return (
+      file.indexOf('.') !== 0 &&
+      file !== basename &&
+      file.slice(-3) === '.js' &&
+      file.toLowerCase().includes('model') // only include model files
+    );
+  })
+  .forEach(file => {
+    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
+    db[model.name] = model;
+  });
 
+// Call associate() if it exists
+Object.keys(db).forEach(modelName => {
+  if (db[modelName].associate) {
+    db[modelName].associate(db);
+  }
+});
 
-const { sequelize } = require('../config/database');
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
 
-// 1. Import all model definitions (Must happen first)
-const User = require('./User');
-const PatientProfile = require('./PatientProfile');
-const DoctorProfile = require('./DoctorProfile');
-const MedicalRecord = require('./MedicalRecord');
-const ShareToken = require('./ShareToken');
-
-// --- 2. Define Associations ---
-
-// A. User <--> Profile (1:1)
-// If User is deleted, profile is deleted (CASCADE)
-User.hasOne(PatientProfile, { foreignKey: 'userId', onDelete: 'CASCADE' });
-PatientProfile.belongsTo(User, { foreignKey: 'userId', as: 'User' }); 
-// Allows us to fetch patient.User.email
-
-User.hasOne(DoctorProfile, { foreignKey: 'userId', onDelete: 'CASCADE' });
-DoctorProfile.belongsTo(User, { foreignKey: 'userId', as: 'User' }); 
-// Allows us to fetch doctor.User.email
-
-// B. Patient Profile <--> Medical Records (1:N)
-// If Patient Profile is deleted, all records are deleted (CASCADE)
-PatientProfile.hasMany(MedicalRecord, { foreignKey: 'patientId', onDelete: 'CASCADE' });
-MedicalRecord.belongsTo(PatientProfile, { foreignKey: 'patientId', as: 'Patient' });
-
-// C. Doctor Profile <--> Medical Records (1:N)
-// If Doctor Profile is deleted, doctorId is set to NULL (SET NULL)
-DoctorProfile.hasMany(MedicalRecord, { foreignKey: 'doctorId', onDelete: 'SET NULL' });
-MedicalRecord.belongsTo(DoctorProfile, { foreignKey: 'doctorId', as: 'DoctorProfile' });
-
-// D. Patient Profile <--> Share Tokens (1:N)
-// If Patient Profile is deleted, all share tokens are deleted (CASCADE)
-PatientProfile.hasMany(ShareToken, { foreignKey: 'patientId', onDelete: 'CASCADE' });
-ShareToken.belongsTo(PatientProfile, { foreignKey: 'patientId', as: 'PatientProfile' });
-
-// --- 3. Export all models and sequelize instance ---
-module.exports = {
-    sequelize,
-    User,
-    PatientProfile,
-    DoctorProfile,
-    MedicalRecord,
-    ShareToken,
-};
+module.exports = db;

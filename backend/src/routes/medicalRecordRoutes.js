@@ -1,120 +1,88 @@
-// // \backend\src\routes\medicalRecordRoutes.js
-
-// const express = require('express');
-// const router = express.Router();
-
-// const {
-//   createRecord,
-//   getPatientRecords,
-//   updateRecord,
-//   deleteRecord,
-// } = require('../controllers/medicalRecordController');
-
-// // Import protect and role-check middlewares
-// const { protect, requireDoctorOrAdmin, requirePatientOrDoctor } = require('../middlewares/authMiddleware');
-
-// const upload = require('../middlewares/uploadMiddleware');
-
-// // Routes for Medical Records
-
-// // Create a new record (Doctor/Admin only)
-// // **MODIFIED ROUTE**: Add upload middleware to handle the file field 'medicalFile'
-// router.post(
-//   '/',
-//   protect,
-//   requireDoctorOrAdmin,
-//   upload.single('medicalFile'), // <--- **NEW MIDDLEWARE**
-//   createRecord
-// );
-
-// // Get all records for a patient (Patient, Doctor, Admin)
-// router.get('/patient/:patientId', protect, requirePatientOrDoctor, getPatientRecords);
-
-// // Update a specific record (Doctor/Admin only)
-// router.put('/:id', protect, requireDoctorOrAdmin, updateRecord);
-
-// // Delete a specific record (Doctor/Admin only)
-// router.delete('/:id', protect, requireDoctorOrAdmin, deleteRecord);
-
-// module.exports = router;
-
-
+// backend/src/routes/medicalRecordRoutes.js
 
 const express = require('express');
 const router = express.Router();
-const { body, param } = require('express-validator'); // Import validator
-const validate = require('../middlewares/validateMiddleware'); // Import validation middleware
-
+const { body } = require('express-validator');
+const validate = require('../middlewares/validateMiddleware');
+const { protect } = require('../middlewares/authMiddleware');
+const { uploadSingle, handleUploadError } = require('../middlewares/uploadMiddleware');
+const { recordCreationLimiter, uploadLimiter } = require('../middlewares/security');
 const {
-    createRecord,
-    getPatientRecords,
-    updateRecord,
-    deleteRecord,
-    getRecordFileUrl // NEW FUNCTION: Requires update to medicalRecordController
+  createMedicalRecord,
+  getMyMedicalRecords,
+  getMedicalRecord,
+  deleteMedicalRecord
 } = require('../controllers/medicalRecordController');
 
-// Import protect and role-check middlewares
-const { protect, requireDoctorOrAdmin, requirePatientOrDoctor } =
- require('../middlewares/authMiddleware');
-const upload = require('../middlewares/uploadMiddleware');
+// All routes require authentication
+router.use(protect);
 
-// --- 1. Create a new record (Doctor/Admin only) ---
+/**
+ * @route   POST /api/medical
+ * @desc    Create medical record with optional file upload
+ */
 router.post(
-    '/',
-    protect,
-    requireDoctorOrAdmin,
-    // Improvement: Add validation before upload (if possible) or before controller logic
-    [
-        body('patientId').isUUID().withMessage('Valid patient ID (UUID) is required.'),
-        body('title').isLength({ min: 3 }).withMessage('Title is required.')
-    ],
-    validate, 
-    upload.single('medicalFile'), 
-    createRecord
+  '/',
+  recordCreationLimiter, // Rate limit: 20 records per hour
+  uploadLimiter,        // Rate limit: 20 uploads per hour
+  uploadSingle,         // Handle file upload
+  handleUploadError,    // Handle upload errors
+  [
+    body('title')
+      .trim()
+      .notEmpty()
+      .withMessage('Title is required')
+      .isLength({ min: 3, max: 200 })
+      .withMessage('Title must be between 3 and 200 characters'),
+    body('description')
+      .optional()
+      .trim()
+      .isLength({ max: 5000 })
+      .withMessage('Description must be less than 5000 characters'),
+    body('diagnosis')
+      .optional()
+      .trim()
+      .isLength({ max: 5000 })
+      .withMessage('Diagnosis must be less than 5000 characters'),
+    body('prescription')
+      .optional()
+      .trim()
+      .isLength({ max: 5000 })
+      .withMessage('Prescription must be less than 5000 characters'),
+    body('notes')
+      .optional()
+      .trim()
+      .isLength({ max: 5000 })
+      .withMessage('Notes must be less than 5000 characters'),
+    body('recordDate')
+      .optional()
+      .isDate()
+      .withMessage('Record date must be a valid date'),
+    body('patientId')
+      .optional()
+      .isUUID()
+      .withMessage('Patient ID must be a valid UUID')
+  ],
+  validate,
+  createMedicalRecord
 );
 
-// --- 2. Get all records for a patient (Patient, Doctor, Admin) ---
-router.get(
-    '/patient/:patientId', 
-    protect, 
-    requirePatientOrDoctor, 
-    [param('patientId').isUUID().withMessage('Valid patient ID (UUID) is required.')],
-    validate,
-    getPatientRecords
-);
+/**
+ * @route   GET /api/medical
+ * @desc    Get all medical records for authenticated user
+ */
+router.get('/', getMyMedicalRecords);
 
-// --- 3. Get file for a specific record (CRITICAL NEW SECURE ROUTE) ---
-// Note: This route uses the same authorization logic as viewing records.
-router.get(
-    '/:id/file', 
-    protect, 
-    requirePatientOrDoctor,
-    [param('id').isUUID().withMessage('Valid record ID (UUID) is required.')],
-    validate,
-    getRecordFileUrl // Generates a pre-signed S3 URL
-);
+/**
+ * @route   GET /api/medical/:id
+ * @desc    Get single medical record by ID
+ */
+router.get('/:id', getMedicalRecord);
 
-// --- 4. Update a specific record (Doctor/Admin only) ---
-router.put(
-    '/:id', 
-    protect, 
-    requireDoctorOrAdmin, 
-    [
-        param('id').isUUID().withMessage('Valid record ID (UUID) is required.'),
-        body('title').optional().isLength({ min: 3 }).withMessage('Title must be at least 3 characters.')
-    ],
-    validate,
-    updateRecord
-);
-
-// --- 5. Delete a specific record (Doctor/Admin only) ---
-router.delete(
-    '/:id', 
-    protect, 
-    requireDoctorOrAdmin, 
-    [param('id').isUUID().withMessage('Valid record ID (UUID) is required.')],
-    validate,
-    deleteRecord
-);
+/**
+ * @route   DELETE /api/medical/:id
+ * @desc    Delete medical record
+ */
+router.delete('/:id', deleteMedicalRecord);
 
 module.exports = router;
