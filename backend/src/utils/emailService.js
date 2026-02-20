@@ -402,8 +402,9 @@ const sendVerificationEmail = async (email, otp) => {
     return { success: true, messageId: info.messageId };
 
   } catch (error) {
-    logger.error('Failed to send verification email:', error);
-    throw new Error('Failed to send verification email');
+    console.log('🚨 ACTUAL GMAIL ERROR:', error.message);
+    console.log('🚨 CREDENTIAL CHECK -> USER:', process.env.EMAIL_USER, 'PASS EXISTS:', !!process.env.EMAIL_PASS);
+    throw error;
   }
 };
 
