@@ -2,6 +2,7 @@
 
 const express = require('express');
 const app = express();
+app.set('trust proxy', 1); // ✅ ADDED: Trust Render's reverse proxy
 const dotenv = require('dotenv');
 const path = require('path');
 const cors = require('cors');
