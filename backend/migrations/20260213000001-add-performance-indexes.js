@@ -6,98 +6,82 @@ module.exports = {
   up: async (queryInterface, Sequelize) => {
     console.log('📊 Adding performance indexes...');
 
+    // Helper function to safely add index
+    const safeAddIndex = async (tableName, columns, indexName) => {
+      try {
+        // Check if table and columns exist
+        const tableDescription = await queryInterface.describeTable(tableName);
+        const columnsArray = Array.isArray(columns) ? columns : [columns];
+        
+        // Check if all columns exist
+        const allColumnsExist = columnsArray.every(col => tableDescription[col]);
+        
+        if (allColumnsExist) {
+          await queryInterface.addIndex(tableName, columns, { name: indexName });
+          console.log(`✅ Index created: ${indexName}`);
+        } else {
+          console.log(`⏭️  Skipped ${indexName} - column(s) don't exist yet`);
+        }
+      } catch (error) {
+        console.log(`⚠️  Could not create index ${indexName}:`, error.message);
+      }
+    };
+
     // 1. AuditLogs indexes (for filtering and reporting)
-    await queryInterface.addIndex('AuditLogs', ['actorId'], {
-      name: 'audit_logs_actor_id'
-    });
-    console.log('✅ Index created: audit_logs_actor_id');
+    await safeAddIndex('AuditLogs', ['actorId'], 'audit_logs_actor_id');
+    await safeAddIndex('AuditLogs', ['action'], 'audit_logs_action');
+    await safeAddIndex('AuditLogs', ['timestamp'], 'audit_logs_timestamp');
+    await safeAddIndex('AuditLogs', ['resourceType', 'resourceId'], 'audit_logs_resource');
 
-    await queryInterface.addIndex('AuditLogs', ['action'], {
-      name: 'audit_logs_action'
-    });
-    console.log('✅ Index created: audit_logs_action');
-
-    await queryInterface.addIndex('AuditLogs', ['timestamp'], {
-      name: 'audit_logs_timestamp'
-    });
-    console.log('✅ Index created: audit_logs_timestamp');
-
-    await queryInterface.addIndex('AuditLogs', ['resourceType', 'resourceId'], {
-      name: 'audit_logs_resource'
-    });
-    console.log('✅ Index created: audit_logs_resource');
-
-    // 2. Users index (for role-based queries)
-    await queryInterface.addIndex('users', ['role'], {
-      name: 'users_role'
-    });
-    console.log('✅ Index created: users_role');
-
-    await queryInterface.addIndex('users', ['is_active'], {
-      name: 'users_is_active'
-    });
-    console.log('✅ Index created: users_is_active');
+    // 2. Users indexes (for role-based queries)
+    await safeAddIndex('users', ['role'], 'users_role');
+    await safeAddIndex('users', ['is_active'], 'users_is_active');
 
     // 3. MedicalRecords indexes (for soft delete queries)
-    await queryInterface.addIndex('MedicalRecords', ['deletedAt'], {
-      name: 'medical_records_deleted_at'
-    });
-    console.log('✅ Index created: medical_records_deleted_at');
-
-    await queryInterface.addIndex('MedicalRecords', ['createdAt'], {
-      name: 'medical_records_created_at'
-    });
-    console.log('✅ Index created: medical_records_created_at');
+    await safeAddIndex('MedicalRecords', ['deletedAt'], 'medical_records_deleted_at');
+    await safeAddIndex('MedicalRecords', ['createdAt'], 'medical_records_created_at');
 
     // 4. AccessRequests indexes (for expiration and time-based queries)
-    await queryInterface.addIndex('AccessRequests', ['expiresAt'], {
-      name: 'access_requests_expires_at'
-    });
-    console.log('✅ Index created: access_requests_expires_at');
+    await safeAddIndex('AccessRequests', ['expiresAt'], 'access_requests_expires_at');
+    await safeAddIndex('AccessRequests', ['createdAt'], 'access_requests_created_at');
 
-    await queryInterface.addIndex('AccessRequests', ['createdAt'], {
-      name: 'access_requests_created_at'
-    });
-    console.log('✅ Index created: access_requests_created_at');
-
-    // 5. ShareTokens index (for active token queries)
-    await queryInterface.addIndex('ShareTokens', ['isActive'], {
-      name: 'share_tokens_is_active'
-    });
-    console.log('✅ Index created: share_tokens_is_active');
-
-    await queryInterface.addIndex('ShareTokens', ['purpose'], {
-      name: 'share_tokens_purpose'
-    });
-    console.log('✅ Index created: share_tokens_purpose');
+    // 5. ShareTokens indexes (for active token queries)
+    await safeAddIndex('ShareTokens', ['isActive'], 'share_tokens_is_active');
+    await safeAddIndex('ShareTokens', ['purpose'], 'share_tokens_purpose');
 
     // 6. DoctorProfiles index (for verification status queries)
-    await queryInterface.addIndex('DoctorProfiles', ['isVerified'], {
-      name: 'doctor_profiles_is_verified'
-    });
-    console.log('✅ Index created: doctor_profiles_is_verified');
+    await safeAddIndex('DoctorProfiles', ['isVerified'], 'doctor_profiles_is_verified');
 
-    console.log('🎉 All performance indexes created successfully!');
+    console.log('🎉 Performance indexes migration completed!');
   },
 
   down: async (queryInterface, Sequelize) => {
     console.log('📊 Removing performance indexes...');
 
-    // Remove all indexes in reverse order
-    await queryInterface.removeIndex('DoctorProfiles', 'doctor_profiles_is_verified');
-    await queryInterface.removeIndex('ShareTokens', 'share_tokens_purpose');
-    await queryInterface.removeIndex('ShareTokens', 'share_tokens_is_active');
-    await queryInterface.removeIndex('AccessRequests', 'access_requests_created_at');
-    await queryInterface.removeIndex('AccessRequests', 'access_requests_expires_at');
-    await queryInterface.removeIndex('MedicalRecords', 'medical_records_created_at');
-    await queryInterface.removeIndex('MedicalRecords', 'medical_records_deleted_at');
-    await queryInterface.removeIndex('users', 'users_is_active');
-    await queryInterface.removeIndex('users', 'users_role');
-    await queryInterface.removeIndex('AuditLogs', 'audit_logs_resource');
-    await queryInterface.removeIndex('AuditLogs', 'audit_logs_timestamp');
-    await queryInterface.removeIndex('AuditLogs', 'audit_logs_action');
-    await queryInterface.removeIndex('AuditLogs', 'audit_logs_actor_id');
+    const safeRemoveIndex = async (tableName, indexName) => {
+      try {
+        await queryInterface.removeIndex(tableName, indexName);
+        console.log(`✅ Removed index: ${indexName}`);
+      } catch (error) {
+        console.log(`⏭️  Index ${indexName} doesn't exist or already removed`);
+      }
+    };
 
-    console.log('🎉 All performance indexes removed successfully!');
+    // Remove all indexes in reverse order
+    await safeRemoveIndex('DoctorProfiles', 'doctor_profiles_is_verified');
+    await safeRemoveIndex('ShareTokens', 'share_tokens_purpose');
+    await safeRemoveIndex('ShareTokens', 'share_tokens_is_active');
+    await safeRemoveIndex('AccessRequests', 'access_requests_created_at');
+    await safeRemoveIndex('AccessRequests', 'access_requests_expires_at');
+    await safeRemoveIndex('MedicalRecords', 'medical_records_created_at');
+    await safeRemoveIndex('MedicalRecords', 'medical_records_deleted_at');
+    await safeRemoveIndex('users', 'users_is_active');
+    await safeRemoveIndex('users', 'users_role');
+    await safeRemoveIndex('AuditLogs', 'audit_logs_resource');
+    await safeRemoveIndex('AuditLogs', 'audit_logs_timestamp');
+    await safeRemoveIndex('AuditLogs', 'audit_logs_action');
+    await safeRemoveIndex('AuditLogs', 'audit_logs_actor_id');
+
+    console.log('🎉 All performance indexes removed!');
   }
 };
