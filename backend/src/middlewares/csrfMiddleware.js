@@ -5,8 +5,8 @@ const crypto = require('crypto');
 // In-memory token store (in production, use Redis or database)
 const tokenStore = new Map();
 
-// Token expiration time (15 minutes)
-const TOKEN_EXPIRY = 15 * 60 * 1000;
+// Token expiration time (24 hours)
+ const TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
  * Clean up expired tokens periodically

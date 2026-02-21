@@ -164,12 +164,10 @@ logger.info('✅ CSRF protection enabled (Header-Only)');
  
 
 // ==============================================
-// STATIC FILE SERVING (Development only)
+// STATIC FILE SERVING (Always enabled - files need to be accessible)
 // ==============================================
-if (process.env.NODE_ENV !== 'production') {
-  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-  logger.info('📁 Static file serving enabled for /uploads');
-}
+app.use('/uploads/medical-records', express.static(path.join(__dirname, 'uploads/medical-records')));
+logger.info('✅ Static file serving enabled for /uploads/medical-records');
 
 // ==============================================
 // ROUTES
