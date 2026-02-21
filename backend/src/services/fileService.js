@@ -21,10 +21,11 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production' && BUCKET_NAME;
 /**
  * Generate signed URL for file download (production only)
  */
- const generateSignedUrl = async (fileKey, expiresIn = 3600) => {
+  const generateSignedUrl = async (fileKey, expiresIn = 3600) => {      
   if (!IS_PRODUCTION) {
-    // In development, return absolute URL pointing to backend
-    return `https://localhost:5000/uploads/medical-records/${fileKey}`;
+    // In development or render deployment, use SERVER_URL
+    const serverUrl = process.env.SERVER_URL || 'https://localhost:5000';
+    return `${serverUrl}/uploads/medical-records/${fileKey}`;
   }
   try {
     const command = new GetObjectCommand({
