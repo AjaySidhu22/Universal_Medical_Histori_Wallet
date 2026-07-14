@@ -1,126 +1,82 @@
- // backend/src/middlewares/updateMiddleware.js
+// backend/src/middlewares/updateMiddleware.js
 
 const multer = require('multer');
 const path = require('path');
-const { S3Client } = require('@aws-sdk/client-s3');
-const multerS3 = require('multer-s3');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('cloudinary').v2;
 const logger = require('../utils/logger');
 
-// Configure AWS S3
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-  }
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Allowed file types for medical records
+// Allowed file types
 const ALLOWED_FILE_TYPES = {
   'image/jpeg': ['.jpg', '.jpeg'],
   'image/png': ['.png'],
   'image/webp': ['.webp'],
   'application/pdf': ['.pdf'],
-  'application/dicom': ['.dcm'], // Medical imaging format
-  'image/tiff': ['.tif', '.tiff'] // Medical imaging
+  'application/dicom': ['.dcm'],
+  'image/tiff': ['.tif', '.tiff']
 };
 
 // Maximum file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-// File filter function
+// File filter
 const fileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
   const mimeType = file.mimetype.toLowerCase();
 
-  // Check if file type is allowed
   if (ALLOWED_FILE_TYPES[mimeType] && ALLOWED_FILE_TYPES[mimeType].includes(ext)) {
-    logger.info('File upload accepted', { 
-      filename: file.originalname, 
+    logger.info('File upload accepted', {
+      filename: file.originalname,
       mimetype: mimeType,
-      userId: req.user?.id 
+      userId: req.user?.id
     });
     cb(null, true);
   } else {
-    logger.warn('File upload rejected - invalid type', { 
-      filename: file.originalname, 
+    logger.warn('File upload rejected - invalid type', {
+      filename: file.originalname,
       mimetype: mimeType,
-      userId: req.user?.id 
+      userId: req.user?.id
     });
-    cb(new Error(`Invalid file type. Allowed types: JPEG, PNG, WEBP, PDF, DICOM, TIFF`), false);
+    cb(new Error('Invalid file type. Allowed types: JPEG, PNG, WEBP, PDF, DICOM, TIFF'), false);
   }
 };
 
-// Generate unique filename
-const generateFileName = (file) => {
-  const timestamp = Date.now();
-  const randomString = Math.random().toString(36).substring(2, 15);
-  const ext = path.extname(file.originalname);
-  return `medical-records/${timestamp}-${randomString}${ext}`;
-};
+// Cloudinary storage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req, file) => {
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const publicId = `medical-records/${timestamp}-${randomString}`;
 
-// Storage configuration
-let upload;
+    return {
+      folder: 'medical-records',
+      public_id: `${timestamp}-${randomString}`,
+      resource_type: 'auto',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'dcm', 'tif', 'tiff']
+    };
+  }
+});
 
-if (process.env.NODE_ENV === 'production' && process.env.AWS_S3_BUCKET) {
-  // Production: Use AWS S3
-  upload = multer({
-    storage: multerS3({
-      s3: s3Client,
-      bucket: process.env.AWS_S3_BUCKET,
-      acl: 'private', // Files are private by default
-      metadata: (req, file, cb) => {
-        cb(null, {
-          uploadedBy: req.user.id,
-          uploadedAt: new Date().toISOString(),
-          originalName: file.originalname
-        });
-      },
-      key: (req, file, cb) => {
-        cb(null, generateFileName(file));
-      }
-    }),
-    fileFilter: fileFilter,
-    limits: {
-      fileSize: MAX_FILE_SIZE,
-      files: 5 // Maximum 5 files per request
-    }
-  });
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+    files: 5
+  }
+});
 
-  logger.info('File upload configured for AWS S3');
+logger.info('File upload configured for Cloudinary');
 
-} else {
-  // Development: Use local disk storage
-  const localStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      const uploadPath = path.join(__dirname, '../../uploads/medical-records');
-      
-      // Create directory if it doesn't exist
-      const fs = require('fs');
-      if (!fs.existsSync(uploadPath)) {
-        fs.mkdirSync(uploadPath, { recursive: true });
-      }
-      
-      cb(null, uploadPath);
-    },
-    filename: (req, file, cb) => {
-      cb(null, generateFileName(file).replace('medical-records/', ''));
-    }
-  });
-
-  upload = multer({
-    storage: localStorage,
-    fileFilter: fileFilter,
-    limits: {
-      fileSize: MAX_FILE_SIZE,
-      files: 5
-    }
-  });
-
-  logger.warn('⚠️ File upload configured for LOCAL STORAGE (development mode)');
-}
-
-// Middleware to handle upload errors
+// Error handler
 const handleUploadError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
@@ -132,31 +88,28 @@ const handleUploadError = (err, req, res, next) => {
     if (err.code === 'LIMIT_FILE_COUNT') {
       return res.status(400).json({
         success: false,
-        message: 'Too many files. Maximum 5 files per upload'
+        message: 'Too many files. Maximum 5 files per request'
       });
     }
     return res.status(400).json({
       success: false,
-      message: `Upload error: ${err.message}`
+      message: err.message
     });
   }
 
   if (err) {
-    logger.error('File upload error:', err);
     return res.status(400).json({
       success: false,
-      message: err.message || 'File upload failed'
+      message: err.message
     });
   }
 
   next();
 };
 
-// Export upload middleware
+const uploadSingle = upload.single('file');
+
 module.exports = {
-  uploadSingle: upload.single('file'),
-  uploadMultiple: upload.array('files', 5),
-  handleUploadError,
-  ALLOWED_FILE_TYPES,
-  MAX_FILE_SIZE
+  uploadSingle,
+  handleUploadError
 };
