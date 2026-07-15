@@ -15,6 +15,18 @@ cloudinary.config({
  */
 const generateSignedUrl = async (fileKey, resourceType = 'image') => {
   try {
+    if (resourceType === 'raw') {
+      // Raw files (PDFs) require signed URLs on Cloudinary
+      const expiresAt = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+      const signedUrl = cloudinary.utils.private_download_url(fileKey, 'pdf', {
+        resource_type: 'raw',
+        expires_at: expiresAt,
+        attachment: false
+      });
+      return signedUrl;
+    }
+
+    // Images can use regular URL
     const url = cloudinary.url(fileKey, {
       secure: true,
       resource_type: resourceType
