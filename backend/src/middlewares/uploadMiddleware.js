@@ -54,12 +54,15 @@ const storage = new CloudinaryStorage({
   params: async (req, file) => {
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 15);
-    const publicId = `medical-records/${timestamp}-${randomString}`;
+
+    // PDFs and DICOM must be uploaded as 'raw', images as 'image'
+    const rawTypes = ['application/pdf', 'application/dicom'];
+    const resourceType = rawTypes.includes(file.mimetype) ? 'raw' : 'image';
 
     return {
       folder: 'medical-records',
       public_id: `${timestamp}-${randomString}`,
-      resource_type: 'auto',
+      resource_type: resourceType,
       allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'dcm', 'tif', 'tiff']
     };
   }

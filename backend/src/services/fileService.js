@@ -55,10 +55,9 @@ const deleteFile = async (fileKey, resourceType = 'image') => {
  * multer-storage-cloudinary puts resource_type in file.resource_type
  */
 const getFileMetadata = (file) => {
-  console.log('CLOUDINARY FILE OBJECT:', JSON.stringify(file, null, 2)); 
-  // Determine resource type — PDFs upload as 'raw', images as 'image'
-  const resourceType = file.resource_type || 
-    (file.mimetype === 'application/pdf' ? 'raw' : 'image');
+  // Determine from mimetype since multer-storage-cloudinary doesn't return resource_type
+  const rawTypes = ['application/pdf', 'application/dicom'];
+  const resourceType = rawTypes.includes(file.mimetype) ? 'raw' : 'image';
 
   return {
     filename: file.originalname,
