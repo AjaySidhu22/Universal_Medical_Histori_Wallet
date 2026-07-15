@@ -21,7 +21,8 @@ const createMedicalRecord = async (req, res, next) => {
         fileKey: metadata.key,
         fileType: req.file.mimetype,
         fileName: req.file.originalname,
-        fileSize: req.file.size
+        fileSize: req.file.size,
+        fileResourceType: metadata.resourceType
       };
       
       logger.info('File uploaded with medical record', { 
@@ -100,7 +101,10 @@ const getMyMedicalRecords = async (req, res, next) => {
 
         if (recordJson.fileKey) {
           try {
-            recordJson.fileUrl = await generateSignedUrl(recordJson.fileKey);
+            recordJson.fileUrl = await generateSignedUrl(
+            recordJson.fileKey,
+            recordJson.fileResourceType || 'image'
+          );
           } catch (err) {
             logger.error('Failed to generate signed URL:', err);
             recordJson.fileUrl = null;
@@ -148,7 +152,10 @@ const getMedicalRecord = async (req, res, next) => {
     // Generate signed URL if file exists
     if (recordJson.fileKey) {
       try {
-        recordJson.fileUrl = await generateSignedUrl(recordJson.fileKey);
+        recordJson.fileUrl = await generateSignedUrl(
+          recordJson.fileKey,
+          recordJson.fileResourceType || 'image'
+        );
       } catch (err) {
         logger.error('Failed to generate signed URL:', err);
         recordJson.fileUrl = null;

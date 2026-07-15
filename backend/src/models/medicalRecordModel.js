@@ -163,10 +163,10 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         comment: 'Original filename'
       },
-      fileSize: {
-        type: DataTypes.INTEGER,
+      fileResourceType: {
+        type: DataTypes.STRING,
         allowNull: true,
-        comment: 'File size in bytes'
+        comment: 'Cloudinary resource type: image or raw'
       },
       recordDate: {
         type: DataTypes.DATEONLY,
