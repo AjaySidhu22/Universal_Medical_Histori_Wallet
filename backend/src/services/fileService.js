@@ -16,15 +16,13 @@ cloudinary.config({
 const generateSignedUrl = async (fileKey, resourceType = 'image') => {
   try {
     if (resourceType === 'raw') {
-      // Generate signed URL for raw files (PDFs, DCM)
-      const timestamp = Math.floor(Date.now() / 1000) + 3600;
-      const signedUrl = cloudinary.url(fileKey, {
+      const url = cloudinary.url(fileKey, {
         secure: true,
         resource_type: 'raw',
         sign_url: true,
-        expires_at: timestamp
+        expires_at: Math.floor(Date.now() / 1000) + 3600
       });
-      return signedUrl;
+      return url;
     }
 
     const url = cloudinary.url(fileKey, {

@@ -59,9 +59,14 @@ const storage = new CloudinaryStorage({
     const rawTypes = ['application/pdf', 'application/dicom'];
     const resourceType = rawTypes.includes(file.mimetype) ? 'raw' : 'image';
 
+    const ext = file.originalname.split('.').pop();
+    const publicId = resourceType === 'raw' 
+      ? `${timestamp}-${randomString}.${ext}`
+      : `${timestamp}-${randomString}`;
+
     return {
       folder: 'medical-records',
-      public_id: `${timestamp}-${randomString}`,
+      public_id: publicId,
       resource_type: resourceType,
       allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'dcm', 'tif', 'tiff']
     };
