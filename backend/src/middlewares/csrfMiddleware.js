@@ -41,6 +41,13 @@ const validateToken = (req, res, next) => {
 
   const [timestamp, hmac] = parts;
 
+  if (!timestamp || !hmac || hmac.length !== 64) {
+    return res.status(403).json({
+      error: 'Invalid CSRF token',
+      message: 'CSRF token is invalid or expired'
+    });
+  }
+
   // Check expiry
   if (Date.now() - parseInt(timestamp) > TOKEN_EXPIRY) {
     return res.status(403).json({
