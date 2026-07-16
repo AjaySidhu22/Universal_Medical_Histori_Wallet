@@ -28,7 +28,7 @@ const createPatientProfileService = async (user, data) => {
     });
 
     await existing.save();
-    return existing;
+    return { profile: existing, isNew: false };
   }
 
   // CREATE new profile
@@ -41,7 +41,7 @@ const createPatientProfileService = async (user, data) => {
     emergencyContactNumber: data.emergencyContactNumber || null,
   });
 
-  return profile;
+  return { profile, isNew: true };
 };
 
 /**
@@ -103,15 +103,18 @@ const createDoctorProfileService = async (user, data) => {
       
       // Return with warning message
       return {
-        ...existing.toJSON(),
-        verificationWarning: true,
-        changedFields: changedFields,
-        message: `⚠️ Your profile has been updated, but verification was reset because you changed: ${changedFields.join(', ')}. An admin must re-verify your profile before you can create medical records.`
+        profile: {
+          ...existing.toJSON(),
+          verificationWarning: true,
+          changedFields: changedFields,
+          message: `⚠️ Your profile has been updated, but verification was reset because you changed: ${changedFields.join(', ')}. An admin must re-verify your profile before you can create medical records.`
+        },
+        isNew: false
       };
     }
 
     await existing.save();
-    return existing;
+    return { profile: existing, isNew: false };
   }
 
   // CREATE new profile
@@ -124,7 +127,7 @@ const createDoctorProfileService = async (user, data) => {
     isVerified: false, // Always starts as unverified
   });
 
-  return profile;
+  return { profile, isNew: true };
 };
 
 /**
