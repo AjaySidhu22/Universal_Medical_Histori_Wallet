@@ -188,7 +188,6 @@ const accessViaToken = async (req, res, next) => {
       message: 'Access granted',
       data: {
         patient: {
-          email: data.patient.User?.email,
           dob: data.patient.dob,
           bloodGroup: data.patient.bloodGroup,
           allergies: data.patient.allergies,
