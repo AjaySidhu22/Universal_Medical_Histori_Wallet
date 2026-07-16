@@ -187,10 +187,12 @@ const deleteMedicalRecord = async (req, res, next) => {
     }
 
      // Only allow deletion by patient or doctor who created it
-const canDelete = 
-  (req.user.role === 'patient' && record.Patient && record.Patient.userId === req.user.id) ||
-  (req.user.role === 'doctor' && record.DoctorProfile && record.DoctorProfile.userId === req.user.id) ||
-  req.user.role === 'admin';
+//const canDelete = 
+  //(req.user.role === 'patient' && record.Patient && record.Patient.userId === req.user.id) ||
+  //(req.user.role === 'doctor' && record.DoctorProfile && record.DoctorProfile.userId === req.user.id) ||
+  //req.user.role === 'admin';
+  // Only admin can delete medical records
+    const canDelete = req.user.role === 'admin';
     if (!canDelete) {
       return res.status(403).json({ 
         success: false, 
