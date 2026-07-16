@@ -13,6 +13,10 @@ const generateShareToken = () => {
   return crypto.randomBytes(32).toString('hex');
 };
 
+const hashToken = (token) => {
+  return crypto.createHash('sha256').update(token).digest('hex');
+};
+
 /**
  * Create a QR code for emergency access
  * @param {String} patientId - Patient profile UUID
@@ -47,16 +51,17 @@ const createEmergencyQR = async (patientId, options = {}) => {
     );
 
     // Generate unique token
-    const token = generateShareToken();
+    const rawToken = generateShareToken();
+    const hashedToken = hashToken(rawToken);
 
     // Calculate expiration
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + durationHours);
 
-    // Create share token record
+    // Store HASHED token in DB, raw token only goes in URL
     const shareToken = await db.ShareToken.create({
       patientId,
-      token,
+      token: hashedToken,
       accessScope,
       expiresAt,
       isActive: true,
@@ -66,7 +71,7 @@ const createEmergencyQR = async (patientId, options = {}) => {
 
     // Generate public access URL
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const shareUrl = `${frontendUrl}/emergency/${token}`;
+    const shareUrl = `${frontendUrl}/emergency/${rawTokentoken}`;
 
     // Generate QR code as data URL
     const qrCodeDataUrl = await QRCode.toDataURL(shareUrl, {
@@ -88,7 +93,7 @@ const createEmergencyQR = async (patientId, options = {}) => {
 
     return {
       id: shareToken.id,
-      token,
+      token: rawToken,
       shareUrl,
       qrCodeDataUrl,
       expiresAt,
@@ -110,9 +115,10 @@ const createEmergencyQR = async (patientId, options = {}) => {
  */
 const verifyShareToken = async (token) => {
   try {
+    const hashedToken = hashToken(token);
     const shareToken = await db.ShareToken.findOne({
       where: {
-        token,
+        token: hashedToken,
         isActive: true,
         expiresAt: { [Op.gt]: new Date() }
       },
