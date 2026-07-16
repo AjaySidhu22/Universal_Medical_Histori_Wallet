@@ -61,10 +61,10 @@ const deleteFile = async (fileKey, resourceType = 'image') => {
  * Save file.path (full Cloudinary URL) as the fileKey
  */
 const getFileMetadata = (file) => {
-  console.log('FILE MIMETYPE:', file.mimetype, 'PATH:', file.path);
+  
   const rawTypes = ['application/pdf', 'application/dicom'];
   const resourceType = rawTypes.includes(file.mimetype) ? 'raw' : 'image';
-  console.log('RESOURCE TYPE:', resourceType);
+  
 
   return {
     filename: file.originalname,

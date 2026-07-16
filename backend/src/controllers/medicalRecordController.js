@@ -24,7 +24,6 @@ const createMedicalRecord = async (req, res, next) => {
         fileSize: req.file.size,
         fileResourceType: metadata.resourceType
       };
-      console.log('FILE DATA TO SAVE:', JSON.stringify(fileData));
       
       logger.info('File uploaded with medical record', { 
         fileKey: metadata.key,
