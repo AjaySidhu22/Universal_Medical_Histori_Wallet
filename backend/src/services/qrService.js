@@ -71,7 +71,7 @@ const createEmergencyQR = async (patientId, options = {}) => {
 
     // Generate public access URL
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const shareUrl = `${frontendUrl}/emergency/${rawTokentoken}`;
+    const shareUrl = `${frontendUrl}/emergency/${rawToken}`;
 
     // Generate QR code as data URL
     const qrCodeDataUrl = await QRCode.toDataURL(shareUrl, {
@@ -87,7 +87,7 @@ const createEmergencyQR = async (patientId, options = {}) => {
 
     logger.info('Emergency QR code created', { 
       patientId, 
-      token: token.substring(0, 8) + '...', 
+      token: rawToken.substring(0, 8) + '...', 
       expiresAt 
     });
 
