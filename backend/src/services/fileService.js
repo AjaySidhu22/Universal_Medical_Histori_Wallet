@@ -10,21 +10,17 @@ cloudinary.config({
 });
 
 /**
- * Generate URL for file access
- * resourceType must be passed from DB — 'image' or 'raw'
+ * Return the stored Cloudinary URL directly
+ * fileKey here is the full URL stored at upload time
  */
 const generateSignedUrl = async (fileKey, resourceType = 'image') => {
   try {
-    if (resourceType === 'raw') {
-      const url = cloudinary.url(fileKey, {
-        secure: true,
-        resource_type: 'raw',
-        sign_url: true,
-        expires_at: Math.floor(Date.now() / 1000) + 3600
-      });
-      return url;
+    // If fileKey is already a full URL, return it directly
+    if (fileKey && fileKey.startsWith('http')) {
+      return fileKey;
     }
 
+    // Otherwise build URL
     const url = cloudinary.url(fileKey, {
       secure: true,
       resource_type: resourceType
@@ -41,8 +37,20 @@ const generateSignedUrl = async (fileKey, resourceType = 'image') => {
  */
 const deleteFile = async (fileKey, resourceType = 'image') => {
   try {
-    await cloudinary.uploader.destroy(fileKey, { resource_type: resourceType });
-    logger.info('File deleted from Cloudinary', { fileKey });
+    // Extract public_id from URL if full URL passed
+    let publicId = fileKey;
+    if (fileKey && fileKey.startsWith('http')) {
+      const parts = fileKey.split('/upload/');
+      if (parts[1]) {
+        publicId = parts[1].replace(/^v\d+\//, '');
+        // Remove extension for non-raw files
+        if (resourceType !== 'raw') {
+          publicId = publicId.replace(/\.[^/.]+$/, '');
+        }
+      }
+    }
+    await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+    logger.info('File deleted from Cloudinary', { publicId });
   } catch (err) {
     logger.error('Failed to delete file from Cloudinary:', err);
   }
@@ -50,19 +58,19 @@ const deleteFile = async (fileKey, resourceType = 'image') => {
 
 /**
  * Get file metadata from multer-cloudinary upload
- * multer-storage-cloudinary puts resource_type in file.resource_type
+ * Save file.path (full Cloudinary URL) as the fileKey
  */
 const getFileMetadata = (file) => {
-  console.log('FILE MIMETYPE:', file.mimetype, 'ORIGINALNAME:', file.originalname);
-  // Determine from mimetype since multer-storage-cloudinary doesn't return resource_type
+  console.log('FILE MIMETYPE:', file.mimetype, 'PATH:', file.path);
   const rawTypes = ['application/pdf', 'application/dicom'];
   const resourceType = rawTypes.includes(file.mimetype) ? 'raw' : 'image';
+  console.log('RESOURCE TYPE:', resourceType);
 
   return {
     filename: file.originalname,
     size: file.size,
     mimetype: file.mimetype,
-    key: file.filename,
+    key: file.path,  // Store full Cloudinary URL as key
     location: file.path,
     resourceType
   };
