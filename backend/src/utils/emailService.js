@@ -132,38 +132,134 @@ const calculateDuration = (expiresAt) => {
 
 const sendAccessRequestEmail = async (patientEmail, doctorProfile, accessRequest) => {
   try {
-    const content = `<h2>📋 New Access Request</h2><p>A doctor has requested access to your medical records.</p>`;
-    const mailOptions = { to: patientEmail, subject: '🏥 New Medical Record Access Request', html: generateEmailTemplate('New Access Request', content) };
+    const doctorName = doctorProfile?.name || 'A doctor';
+    const specialty = doctorProfile?.specialty || 'General Practice';
+    const accessType = accessRequest?.requestType || 'view';
+    const reason = accessRequest?.reason || 'Not specified';
+    const duration = accessRequest?.requestedDuration 
+      ? `${accessRequest.requestedDuration} hours` 
+      : 'As requested';
+
+    const content = `
+      <h2>📋 New Medical Record Access Request</h2>
+      <p>Hello,</p>
+      <p>A doctor has requested access to your medical records. Please log in to approve or deny this request.</p>
+      <div class="info-box">
+        <p><strong>👨‍⚕️ Doctor:</strong> Dr. ${doctorName}</p>
+        <p><strong>🏥 Specialty:</strong> ${specialty}</p>
+        <p><strong>📋 Access Type:</strong> ${accessType}</p>
+        <p><strong>⏰ Requested Duration:</strong> ${duration}</p>
+        <p><strong>💬 Reason:</strong> ${reason}</p>
+      </div>
+      <div class="warning">
+        <p><strong>⚠️ Important:</strong> Only approve access requests from doctors you recognize and trust.</p>
+      </div>
+      <p>Log in to your Universal Medical Wallet account to respond to this request.</p>
+    `;
+    const mailOptions = {
+      to: patientEmail,
+      subject: `🏥 Dr. ${doctorName} has requested access to your medical records`,
+      html: generateEmailTemplate('New Access Request', content)
+    };
     await transporter.sendMail(mailOptions);
     return { success: true };
-  } catch (error) { throw new Error('Failed to send access request email'); }
+  } catch (error) {
+    logger.error('Failed to send access request email:', error);
+    throw new Error('Failed to send access request email');
+  }
 };
 
 const sendAccessApprovalEmail = async (doctorEmail, patientProfile, accessRequest) => {
   try {
-    const content = `<h2>✅ Access Request Approved</h2><p>Your access request has been approved by the patient.</p>`;
-    const mailOptions = { to: doctorEmail, subject: '✅ Medical Record Access Approved', html: generateEmailTemplate('Access Approved', content) };
+    const duration = accessRequest?.requestedDuration 
+      ? `${accessRequest.requestedDuration} hours` 
+      : 'As requested';
+    const expiresAt = accessRequest?.expiresAt 
+      ? new Date(accessRequest.expiresAt).toLocaleString() 
+      : 'N/A';
+
+    const content = `
+      <h2>✅ Medical Record Access Approved</h2>
+      <p>Hello Dr. ${patientProfile?.name || ''},</p>
+      <p>Your request to access a patient's medical records has been approved.</p>
+      <div class="info-box">
+        <p><strong>⏰ Access Duration:</strong> ${duration}</p>
+        <p><strong>📅 Access Expires:</strong> ${expiresAt}</p>
+        <p><strong>📋 Access Type:</strong> ${accessRequest?.requestType || 'view'}</p>
+      </div>
+      <div class="warning">
+        <p><strong>⚠️ Reminder:</strong> Use this access responsibly and only for the stated medical purpose.</p>
+      </div>
+      <p>Please log in to Universal Medical Wallet to view the patient's records.</p>
+    `;
+    const mailOptions = {
+      to: doctorEmail,
+      subject: '✅ Medical Record Access Request Approved',
+      html: generateEmailTemplate('Access Approved', content)
+    };
     await transporter.sendMail(mailOptions);
     return { success: true };
-  } catch (error) { throw new Error('Failed to send access approval email'); }
+  } catch (error) {
+    logger.error('Failed to send access approval email:', error);
+    throw new Error('Failed to send access approval email');
+  }
 };
 
 const sendAccessDenialEmail = async (doctorEmail, patientProfile, accessRequest) => {
   try {
-    const content = `<h2>❌ Access Request Denied</h2><p>Unfortunately, your access request has been denied by the patient.</p>`;
-    const mailOptions = { to: doctorEmail, subject: '❌ Medical Record Access Request Denied', html: generateEmailTemplate('Access Denied', content) };
+    const content = `
+      <h2>❌ Medical Record Access Request Denied</h2>
+      <p>Hello,</p>
+      <p>Your request to access a patient's medical records has been denied by the patient.</p>
+      <div class="info-box">
+        <p><strong>📋 Access Type Requested:</strong> ${accessRequest?.requestType || 'view'}</p>
+        <p><strong>📅 Request Date:</strong> ${accessRequest?.createdAt ? new Date(accessRequest.createdAt).toLocaleString() : 'N/A'}</p>
+      </div>
+      <p>If you believe this was a mistake, please contact the patient directly to discuss access to their records.</p>
+    `;
+    const mailOptions = {
+      to: doctorEmail,
+      subject: '❌ Medical Record Access Request Denied',
+      html: generateEmailTemplate('Access Denied', content)
+    };
     await transporter.sendMail(mailOptions);
     return { success: true };
-  } catch (error) { throw new Error('Failed to send access denial email'); }
+  } catch (error) {
+    logger.error('Failed to send access denial email:', error);
+    throw new Error('Failed to send access denial email');
+  }
 };
 
 const sendPasswordResetEmail = async (email, resetUrl) => {
   try {
-    const content = `<h2>🔑 Password Reset Request</h2><p>Click the link to reset your password: <a href="${resetUrl}">Reset Password</a></p>`;
-    const mailOptions = { to: email, subject: '🔑 Password Reset Request', html: generateEmailTemplate('Password Reset', content) };
+    const content = `
+      <h2>🔑 Password Reset Request</h2>
+      <p>Hello,</p>
+      <p>We received a request to reset your password for your Universal Medical Wallet account.</p>
+      <div class="info-box">
+        <p>Click the button below to reset your password. This link is valid for <strong>1 hour</strong> only.</p>
+      </div>
+      <a href="${resetUrl}" class="action-button" style="display:inline-block;padding:12px 30px;background:#667eea;color:white;text-decoration:none;border-radius:5px;margin:20px 0;font-weight:bold;">
+        🔑 Reset My Password
+      </a>
+      <div class="warning">
+        <p><strong>⚠️ Security Notice:</strong></p>
+        <p>If you did not request a password reset, please ignore this email. Your password will not be changed.</p>
+        <p>Never share this link with anyone.</p>
+      </div>
+      <p style="font-size:12px;color:#666;">If the button doesn't work, copy and paste this link: ${resetUrl}</p>
+    `;
+    const mailOptions = {
+      to: email,
+      subject: '🔑 Password Reset Request - Universal Medical Wallet',
+      html: generateEmailTemplate('Password Reset', content)
+    };
     await transporter.sendMail(mailOptions);
     return { success: true };
-  } catch (error) { throw new Error('Failed to send password reset email'); }
+  } catch (error) {
+    logger.error('Failed to send password reset email:', error);
+    throw new Error('Failed to send password reset email');
+  }
 };
 
 module.exports = {
