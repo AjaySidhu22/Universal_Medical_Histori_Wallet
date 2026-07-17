@@ -9,8 +9,16 @@ const logger = require('../utils/logger');
 const getAllUsers = async (req, res, next) => {
   try {
      const users = await User.findAll({
-          attributes: ['id', 'email', 'role', 'createdAt', 'updatedAt', 'isEmailVerified'] // ✅ ADDED
-      });
+      attributes: ['id', 'email', 'role', 'createdAt', 'updatedAt', 'isEmailVerified'],
+      include: [
+        {
+          model: DoctorProfile,
+          as: 'DoctorProfile',
+          attributes: ['id', 'isVerified'],
+          required: false
+        }
+      ]
+    });
     res.json(users);
   } catch (err) {
     logger.error('Get all users failed:', err);
