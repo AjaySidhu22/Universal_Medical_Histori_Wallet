@@ -11,6 +11,7 @@ const {
   createMedicalRecord,
   getMyMedicalRecords,
   getMedicalRecord,
+  updateMedicalRecord,
   deleteMedicalRecord
 } = require('../controllers/medicalRecordController');
 
@@ -78,6 +79,28 @@ router.get('/', getMyMedicalRecords);
  * @desc    Get single medical record by ID
  */
 router.get('/:id', getMedicalRecord);
+
+/**
+ * @route   PUT /api/medical/:id
+ * @desc    Update medical record
+ */
+router.put(
+  '/:id',
+  [
+    body('title')
+      .optional()
+      .trim()
+      .isLength({ min: 3, max: 200 })
+      .withMessage('Title must be between 3 and 200 characters'),
+    body('description').optional().trim().isLength({ max: 5000 }),
+    body('diagnosis').optional().trim().isLength({ max: 5000 }),
+    body('prescription').optional().trim().isLength({ max: 5000 }),
+    body('notes').optional().trim().isLength({ max: 5000 }),
+    body('recordDate').optional().isDate()
+  ],
+  validate,
+  updateMedicalRecord
+);
 
 /**
  * @route   DELETE /api/medical/:id

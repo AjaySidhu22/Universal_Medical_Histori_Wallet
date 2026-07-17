@@ -233,9 +233,60 @@ const deleteMedicalRecord = async (req, res, next) => {
   }
 };
 
+/**
+ * @route   PUT /api/medical/:id
+ * @desc    Update medical record (doctor who created it only)
+ * @access  Private (Doctor only)
+ */
+const updateMedicalRecord = async (req, res, next) => {
+  try {
+    const record = await getMedicalRecordById(req.user, req.params.id);
+
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: 'Medical record not found or access denied'
+      });
+    }
+
+    // Only the doctor who created it can edit
+    if (req.user.role !== 'doctor' ||
+        !record.DoctorProfile ||
+        record.DoctorProfile.userId !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the doctor who created this record can edit it'
+      });
+    }
+
+    const { title, description, diagnosis, prescription, notes, recordDate } = req.body;
+
+    if (title) record.title = title;
+    if (description !== undefined) record.description = description;
+    if (diagnosis !== undefined) record.diagnosis = diagnosis;
+    if (prescription !== undefined) record.prescription = prescription;
+    if (notes !== undefined) record.notes = notes;
+    if (recordDate) record.recordDate = recordDate;
+
+    await record.save();
+
+    logger.info('Medical record updated', {
+      userId: req.user.id,
+      recordId: record.id
+    });
+
+    res.status(200).json(record);
+
+  } catch (err) {
+    logger.error('Update medical record failed:', err);
+    next(err);
+  }
+};
+
 module.exports = {
   createMedicalRecord,
   getMyMedicalRecords,
   getMedicalRecord,
+  updateMedicalRecord,
   deleteMedicalRecord
 };
