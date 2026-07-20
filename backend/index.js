@@ -188,9 +188,6 @@ try {
   const adminRoutes = require('./src/routes/adminRoutes');
   logger.info('✅ Admin routes loaded');
   
-  const shareRoutes = require('./src/routes/shareRoutes');
-  logger.info('✅ Share routes loaded');
-  
   const accessRequestRoutes = require('./src/routes/accessRequestRoutes');
   logger.info('✅ Access request routes loaded');
    
@@ -200,7 +197,6 @@ try {
   app.use('/api/profile', profileRoutes);
   app.use('/api/medical', medicalRecordRoutes);
   app.use('/api/admin', adminRoutes);
-  app.use('/api/share', shareRoutes);
   app.use('/api/access-requests', accessRequestRoutes);
   app.use('/api/qr', qrRoutes);
   
