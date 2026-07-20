@@ -88,74 +88,72 @@ const record = await db.MedicalRecord.create({
  * @param {Object} user - Authenticated user object
  * @returns {Promise<Array>} Array of medical records
  */
-const getAllRecordsForUser = async (user) => {
+const getAllRecordsForUser = async (user, page = 1, limit = 5) => {
+  const offset = (page - 1) * limit;
+
   if (user.role === 'patient') {
     const patient = await db.PatientProfile.findOne({ where: { userId: user.id } });
-    
-    if (!patient) {
-      throw { statusCode: 404, message: 'Patient profile not found' };
-    }
+    if (!patient) throw { statusCode: 404, message: 'Patient profile not found' };
 
-    return await db.MedicalRecord.findAll({ 
+    const { count, rows } = await db.MedicalRecord.findAndCountAll({
       where: { patientId: patient.id },
       include: [
-        { 
-          model: db.DoctorProfile, 
+        {
+          model: db.DoctorProfile,
           as: 'DoctorProfile',
           include: [{ model: db.User, as: 'User', attributes: ['email', 'id'] }]
         }
       ],
-      order: [['recordDate', 'DESC']]
+      order: [['recordDate', 'DESC']],
+      limit,
+      offset,
+      distinct: true
     });
+
+    return { rows, count };
   }
 
   if (user.role === 'doctor') {
     const doctor = await db.DoctorProfile.findOne({ where: { userId: user.id } });
-    
-    if (!doctor) {
-      throw { statusCode: 404, message: 'Doctor profile not found' };
-    }
+    if (!doctor) throw { statusCode: 404, message: 'Doctor profile not found' };
 
-    // 🔒 STRICTEST CONTROL: Doctor can ONLY see records for patients with APPROVED access
-    // Even if the doctor created the record, they need patient permission to view it
-    
-    // Get all approved access requests for this doctor
     const approvedAccess = await db.AccessRequest.findAll({
       where: {
         doctorId: doctor.id,
         status: 'approved',
-        expiresAt: { [Op.gt]: new Date() }, // Not expired
-        requestType: { [Op.in]: ['view', 'both'] } // Must have view permission
+        expiresAt: { [Op.gt]: new Date() },
+        requestType: { [Op.in]: ['view', 'both'] }
       },
       attributes: ['patientId']
     });
 
     const approvedPatientIds = approvedAccess.map(req => req.patientId);
 
-    // If no approved access, return empty array
     if (approvedPatientIds.length === 0) {
-      return [];
+      return { rows: [], count: 0 };
     }
 
-    // Return records ONLY for patients with approved access
-    return await db.MedicalRecord.findAll({ 
-      where: {
-        patientId: { [Op.in]: approvedPatientIds }
-      },
+    const { count, rows } = await db.MedicalRecord.findAndCountAll({
+      where: { patientId: { [Op.in]: approvedPatientIds } },
       include: [
-        { 
-          model: db.PatientProfile, 
+        {
+          model: db.PatientProfile,
           as: 'Patient',
           include: [{ model: db.User, as: 'User', attributes: ['email', 'id'] }]
         },
-        { 
-          model: db.DoctorProfile, 
+        {
+          model: db.DoctorProfile,
           as: 'DoctorProfile',
           include: [{ model: db.User, as: 'User', attributes: ['email', 'id'] }]
         }
       ],
-      order: [['recordDate', 'DESC']]
+      order: [['recordDate', 'DESC']],
+      limit,
+      offset,
+      distinct: true
     });
+
+    return { rows, count };
   }
 
   throw { statusCode: 403, message: 'Access denied' };
@@ -167,45 +165,47 @@ const getAllRecordsForUser = async (user) => {
  * @param {String} recordId - Record UUID
  * @returns {Promise<Object|null>} Medical record or null
  */
-const getMedicalRecordById = async (user, recordId) => {
-  const record = await db.MedicalRecord.findByPk(recordId, {
-    include: [
-      { 
-        model: db.DoctorProfile, 
-        as: 'DoctorProfile',
-        include: [{ model: db.User, as: 'User', attributes: ['email', 'id'] }]
-      },
-      { 
-        model: db.PatientProfile, 
-        as: 'Patient',
-        include: [{ model: db.User, as: 'User', attributes: ['email', 'id'] }]
+const getMyMedicalRecords = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+
+    const { rows, count } = await getAllRecordsForUser(req.user, page, limit);
+
+    const totalPages = Math.ceil(count / limit);
+
+    const recordsWithUrls = await Promise.all(
+      rows.map(async (record) => {
+        const recordJson = record.toJSON();
+        if (recordJson.fileKey) {
+          try {
+            recordJson.fileUrl = await generateSignedUrl(
+              recordJson.fileKey,
+              recordJson.fileResourceType || 'image'
+            );
+          } catch (err) {
+            logger.error('Failed to generate signed URL:', err);
+            recordJson.fileUrl = null;
+          }
+        }
+        return recordJson;
+      })
+    );
+
+    res.json({
+      data: recordsWithUrls,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: count,
+        itemsPerPage: limit
       }
-    ]
-  });
+    });
 
-  if (!record) {
-    return null;
+  } catch (err) {
+    logger.error('Get medical records failed:', err);
+    next(err);
   }
-
-  // Check access permissions
-  if (user.role === 'patient') {
-    const patient = await db.PatientProfile.findOne({ where: { userId: user.id } });
-    return record.patientId === patient?.id ? record : null;
-  }
-
-  if (user.role === 'doctor') {
-    const doctor = await db.DoctorProfile.findOne({ where: { userId: user.id } });
-    
-    // 🔒 STRICT: Doctor needs approved access even for records they created
-    const hasAccess = await checkDoctorAccess(doctor.id, record.patientId, 'view');
-    return hasAccess ? record : null;
-  }
-
-  if (user.role === 'admin') {
-    return record; // Admin can view all records
-  }
-
-  return null;
 };
 
 /**
