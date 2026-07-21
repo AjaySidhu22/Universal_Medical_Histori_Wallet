@@ -76,41 +76,27 @@ const createMedicalRecord = async (req, res, next) => {
  */
 const getMyMedicalRecords = async (req, res, next) => {
   try {
-    // Get pagination params from query
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 5;
 
-    // Get all records first (we'll paginate after URL generation)
-    const allRecords = await getAllRecordsForUser(req.user);
+    const { rows, count } = await getAllRecordsForUser(req.user, page, limit);
 
-    // Get total count
-    const totalCount = allRecords.length;
-    const totalPages = Math.ceil(totalCount / limit);
+    const totalPages = Math.ceil(count / limit);
 
-    // Calculate pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    
-    // Get records for current page
-    const paginatedRecords = allRecords.slice(startIndex, endIndex);
-
-    // Generate signed URLs for files (only for current page)
     const recordsWithUrls = await Promise.all(
-      paginatedRecords.map(async (record) => {
+      rows.map(async (record) => {
         const recordJson = record.toJSON();
-
         if (recordJson.fileKey) {
           try {
             recordJson.fileUrl = await generateSignedUrl(
-            recordJson.fileKey,
-            recordJson.fileResourceType || 'image'
-          );
+              recordJson.fileKey,
+              recordJson.fileResourceType || 'image'
+            );
           } catch (err) {
             logger.error('Failed to generate signed URL:', err);
             recordJson.fileUrl = null;
           }
         }
-
         return recordJson;
       })
     );
@@ -120,7 +106,7 @@ const getMyMedicalRecords = async (req, res, next) => {
       pagination: {
         currentPage: page,
         totalPages,
-        totalItems: totalCount,
+        totalItems: count,
         itemsPerPage: limit
       }
     });
@@ -129,7 +115,7 @@ const getMyMedicalRecords = async (req, res, next) => {
     logger.error('Get medical records failed:', err);
     next(err);
   }
-}; 
+};
 
 /**
  * @route   GET /api/medical/:id
