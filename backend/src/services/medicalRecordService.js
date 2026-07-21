@@ -3,6 +3,15 @@
 const db = require('../models');
 const { Op } = require('sequelize');
 
+const RECORD_ATTRIBUTES = [
+  'id', 'title', 'diagnosis', 'prescription', 'notes', 'description',
+  'recordDate', 'fileKey', 'fileName', 'fileType', 'fileSize',
+  'fileResourceType', 'patientId', 'doctorId'
+];
+
+const DOCTOR_ATTRIBUTES = ['id', 'name', 'specialty', 'userId'];
+const PATIENT_ATTRIBUTES = ['id', 'userId'];
+
 const createMedicalRecordService = async (user, data) => {
   let patientId = null;
   let doctorId = null;
@@ -54,15 +63,18 @@ const createMedicalRecordService = async (user, data) => {
   });
 
   const fullRecord = await db.MedicalRecord.findByPk(record.id, {
+    attributes: RECORD_ATTRIBUTES,
     include: [
       {
         model: db.DoctorProfile,
         as: 'DoctorProfile',
+        attributes: DOCTOR_ATTRIBUTES,
         include: [{ model: db.User, as: 'User', attributes: ['email'] }]
       },
       {
         model: db.PatientProfile,
         as: 'Patient',
+        attributes: PATIENT_ATTRIBUTES,
         include: [{ model: db.User, as: 'User', attributes: ['email'] }]
       }
     ]
@@ -80,11 +92,13 @@ const getAllRecordsForUser = async (user, page = 1, limit = 5) => {
 
     const { count, rows } = await db.MedicalRecord.findAndCountAll({
       where: { patientId: patient.id },
+      attributes: RECORD_ATTRIBUTES,
       include: [
         {
           model: db.DoctorProfile,
           as: 'DoctorProfile',
-          include: [{ model: db.User, as: 'User', attributes: ['email', 'id'] }]
+          attributes: DOCTOR_ATTRIBUTES,
+          include: [{ model: db.User, as: 'User', attributes: ['email'] }]
         }
       ],
       order: [['recordDate', 'DESC']],
@@ -118,16 +132,19 @@ const getAllRecordsForUser = async (user, page = 1, limit = 5) => {
 
     const { count, rows } = await db.MedicalRecord.findAndCountAll({
       where: { patientId: { [Op.in]: approvedPatientIds } },
+      attributes: RECORD_ATTRIBUTES,
       include: [
         {
           model: db.PatientProfile,
           as: 'Patient',
-          include: [{ model: db.User, as: 'User', attributes: ['email', 'id'] }]
+          attributes: PATIENT_ATTRIBUTES,
+          include: [{ model: db.User, as: 'User', attributes: ['email'] }]
         },
         {
           model: db.DoctorProfile,
           as: 'DoctorProfile',
-          include: [{ model: db.User, as: 'User', attributes: ['email', 'id'] }]
+          attributes: DOCTOR_ATTRIBUTES,
+          include: [{ model: db.User, as: 'User', attributes: ['email'] }]
         }
       ],
       order: [['recordDate', 'DESC']],
@@ -144,16 +161,19 @@ const getAllRecordsForUser = async (user, page = 1, limit = 5) => {
 
 const getMedicalRecordById = async (user, recordId) => {
   const record = await db.MedicalRecord.findByPk(recordId, {
+    attributes: RECORD_ATTRIBUTES,
     include: [
       {
         model: db.DoctorProfile,
         as: 'DoctorProfile',
-        include: [{ model: db.User, as: 'User', attributes: ['email', 'id'] }]
+        attributes: DOCTOR_ATTRIBUTES,
+        include: [{ model: db.User, as: 'User', attributes: ['email'] }]
       },
       {
         model: db.PatientProfile,
         as: 'Patient',
-        include: [{ model: db.User, as: 'User', attributes: ['email', 'id'] }]
+        attributes: PATIENT_ATTRIBUTES,
+        include: [{ model: db.User, as: 'User', attributes: ['email'] }]
       }
     ]
   });
