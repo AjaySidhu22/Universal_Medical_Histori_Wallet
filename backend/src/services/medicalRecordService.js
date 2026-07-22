@@ -8,7 +8,7 @@ const RECORD_ATTRIBUTES = [
   'recordDate', 'fileKey', 'fileName', 'fileType', 'fileSize'
 ];
 
-const DOCTOR_ATTRIBUTES = ['id', 'name', 'specialty', 'userId'];
+const DOCTOR_ATTRIBUTES = ['name', 'specialty', 'userId'];
 const PATIENT_ATTRIBUTES = ['id', 'userId'];
 
 const createMedicalRecordService = async (user, data) => {
