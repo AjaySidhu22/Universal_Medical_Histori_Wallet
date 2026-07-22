@@ -5,8 +5,7 @@ const { Op } = require('sequelize');
 
 const RECORD_ATTRIBUTES = [
   'id', 'title', 'diagnosis', 'prescription', 'notes', 'description',
-  'recordDate', 'fileKey', 'fileName', 'fileType', 'fileSize',
-  'fileResourceType', 'patientId', 'doctorId'
+  'recordDate', 'fileKey', 'fileName', 'fileType', 'fileSize'
 ];
 
 const DOCTOR_ATTRIBUTES = ['id', 'name', 'specialty', 'userId'];
